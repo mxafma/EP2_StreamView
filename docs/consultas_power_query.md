@@ -47,12 +47,21 @@ let
   Clave = Table.AddColumn(Anexo, "clave", each [type] & "-" & Text.From([show_id]), type text),
   Ordenado = Table.Buffer(Table.Sort(Clave, {{"popularity", Order.Descending}})),
   SinDuplicados = Table.Distinct(Ordenado, {"clave"}),
-  TieneVotos = Table.AddColumn(SinDuplicados, "tiene_votos", each [vote_count] > 0, type logical),
+  TextoLimpio = Table.TransformColumns(SinDuplicados,
+    List.Transform({"title","director","cast","country","genres","language"},
+      (c) => {c, each if _ = null or Text.Trim(_) = "" then null else Text.Trim(_), type text})),
+  SinDato = Table.TransformColumns(TextoLimpio,
+    List.Transform({"director","cast","country","genres"},
+      (c) => {c, each if _ = null then "Sin dato" else _, type text})),
+  TieneVotos = Table.AddColumn(SinDato, "tiene_votos", each [vote_count] > 0, type logical),
   EsFinanciero = Table.AddColumn(TieneVotos, "es_financiero",
     each [type] = "Movie" and [budget] <> null and [revenue] <> null
-         and [budget] >= 10000 and [revenue] >= 10000, type logical)
+         and [budget] >= 10000 and [revenue] >= 10000, type logical),
+  ROI = Table.AddColumn(EsFinanciero, "roi",
+    each if [es_financiero] then [revenue] / [budget] else null, type number),
+  SinDescripcion = Table.RemoveColumns(ROI, {"description"})
 in
-  EsFinanciero
+  SinDescripcion
 ```
 
 ## 4. fnPuente (función)
@@ -65,7 +74,10 @@ let
   Lista = Table.TransformColumns(SinVacios, {{columna, each Text.Split(_, ", "), type list}}),
   Filas = Table.ExpandListColumn(Lista, columna),
   Limpio = Table.TransformColumns(Filas, {{columna, each Text.Trim(_), type text}}),
-  Unico = Table.Distinct(Limpio),
+  Filtrado = Table.SelectRows(Limpio, each Record.Field(_, columna) <> ""
+                                         and Record.Field(_, columna) <> "Sin dato"
+                                         and Record.Field(_, columna) <> "Unknown"),
+  Unico = Table.Distinct(Filtrado),
   Renombrado = Table.RenameColumns(Unico, {{columna, nombre}})
 in
   Renombrado

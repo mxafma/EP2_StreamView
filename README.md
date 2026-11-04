@@ -7,11 +7,11 @@ Dashboard interactivo en Power BI para StreamView Analytics. Corresponde a la Ev
 ```
 EP2_StreamView/
 ├── data/raw/        CSV originales sin modificar
-├── data/processed/  tablas procesadas (si se generan desde el notebook)
-├── notebooks/       calidad_datos.ipynb
+├── data/processed/  tablas procesadas por el notebook (catalogo, puentes, dim_idioma, kpis_referencia)
+├── notebooks/       calidad_datos.ipynb (calidad de datos y antes/después de cada transformación)
 ├── dashboard/       StreamView_EP2.pbix + exportación PDF
 ├── images/          gráficos estáticos y capturas
-├── docs/            informe, presentación, diccionario de KPIs, consultas de Power Query
+├── docs/            informe, presentación, diccionario de KPIs, decisiones_limpieza.md, consultas de Power Query
 └── README.md
 ```
 
@@ -22,7 +22,7 @@ EP2_StreamView/
 3. Si Power BI no encuentra los datos: Inicio → Transformar datos → en las consultas `peliculas` y `series`, editar la ruta del archivo (Editor avanzado) para que apunte a `data/raw/` en tu computador.
 4. Inicio → Cerrar y aplicar.
 
-El código de todas las consultas está en `docs/consultas_power_query.md`.
+El código de todas las consultas está en `docs/consultas_power_query.md`. La tabla de casos y decisiones de limpieza está en `docs/decisiones_limpieza.md`.
 
 ## Modelo de datos
 
@@ -40,11 +40,12 @@ Relaciones: `catalogo[clave]` → cada tabla puente (1:*), y `dim_idioma[codigo_
 2. Se eliminan `duration` y `rating` (ver limitaciones).
 3. Se anexan películas y series en `catalogo` y se crea la clave compuesta `tipo-show_id`.
 4. Se eliminan 9 `show_id` duplicados dentro de series, conservando la fila de mayor `popularity`.
-5. Se agregan `tiene_votos` (`vote_count > 0`) y `es_financiero` (película con `budget` y `revenue` ≥ US$10.000).
-6. `genres`, `country`, `director` y `cast` se separan por ", " en tablas puente.
-7. `language` (código ISO) se traduce a nombre con `dim_idioma`.
+5. Se recortan espacios y los nulos de `director`, `cast`, `country` y `genres` pasan a "Sin dato".
+6. Se agregan `tiene_votos` (`vote_count > 0`), `es_financiero` (película con `budget` y `revenue` ≥ US$10.000) y `roi` (solo para las financieras). Se quita `description`.
+7. `genres`, `country`, `director` y `cast` se separan por ", " en tablas puente, excluyendo "Sin dato" y el género `Unknown`.
+8. `language` (código ISO) se traduce a nombre con `dim_idioma`.
 
-Cifras de control: 32.000 filas de entrada, 31.991 en `catalogo`, 3.492 películas financieras, 28 géneros y 147 países.
+Cifras de control: 32.000 filas de entrada, 31.991 en `catalogo`, 3.492 películas financieras, 27 géneros, 147 países y 83 idiomas.
 
 ## Limitaciones de los datos
 
@@ -54,6 +55,8 @@ Cifras de control: 32.000 filas de entrada, 31.991 en `catalogo`, 3.492 películ
 - 5,6% de las películas y 23% de las series tienen `vote_count = 0`; se excluyen de promedios de valoración.
 - Solo 3.492 películas tienen presupuesto e ingresos de al menos US$10.000.
 - Un título con varios géneros o países cuenta en cada uno.
+- Películas y series usan listas de géneros distintas: los géneros se analizan por tipo.
+- Los títulos sin país o género ("Sin dato") no aparecen en esos análisis.
 - `popularity` es un índice relativo de TMDB, no reproducciones.
 
 ## Equipo
